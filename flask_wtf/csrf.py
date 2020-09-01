@@ -40,18 +40,27 @@ def generate_csrf(secret_key=None, token_key=None):
     )
 
     if field_name not in g:
+        # print(f'{field_name} not in g')
         s = URLSafeTimedSerializer(secret_key, salt='wtf-csrf-token')
 
         if field_name not in session:
             session[field_name] = hashlib.sha1(os.urandom(64)).hexdigest()
+            # print(f'{field_name} not in session; setting to {session[field_name]}')
 
         try:
             token = s.dumps(session[field_name])
+            # print(f'first pass at generating token from session var...{token}')
         except TypeError:
+            # print(f'second pass (after TypeError) at generating token...{token}')
             session[field_name] = hashlib.sha1(os.urandom(64)).hexdigest()
             token = s.dumps(session[field_name])
 
         setattr(g, field_name, token)
+        # print(f'generate_csrf {session[field_name]}, {token}')
+        guess = s.loads(token)
+        # print(f'no surprise: token loads correctly w/in generate method: {guess}')
+    else:
+        token = g.get(field_name)
 
     return g.get(field_name)
 
@@ -90,6 +99,8 @@ def validate_csrf(data, secret_key=None, time_limit=None, token_key=None):
     if not data:
         raise ValidationError('The CSRF token is missing.')
 
+    # print(f'hmmmm another guess...{data}')
+
     if field_name not in session:
         raise ValidationError('The CSRF session token is missing.')
 
@@ -101,6 +112,8 @@ def validate_csrf(data, secret_key=None, time_limit=None, token_key=None):
         raise ValidationError('The CSRF token has expired.')
     except BadData:
         raise ValidationError('The CSRF token is invalid.')
+
+    # print(f'validate_csrf {session[field_name]}, {token}')
 
     if not safe_str_cmp(session[field_name], token):
         raise ValidationError('The CSRF tokens do not match.')
